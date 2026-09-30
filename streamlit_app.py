@@ -28,6 +28,16 @@ try:
 except Exception:
     N8N_WEBHOOK_URL = ""
 
+# ============================================================
+# 2A. SECURE OPENROUTER CONFIGURATION
+# ============================================================
+
+try:
+    OPENROUTER_API_KEY = st.secrets.get(
+        "OPENROUTER_API_KEY", ""
+    ).strip()
+except Exception:
+    OPENROUTER_API_KEY = ""
 
 # ============================================================
 # 3. SYNTHETIC FRAUD CASES
