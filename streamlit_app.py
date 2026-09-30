@@ -120,15 +120,15 @@ st.markdown(
     );
 
     :root {
-        --navy: #101b35;
-        --navy-light: #1b2a4a;
-        --teal: #11b8a6;
-        --teal-light: #e6faf6;
-        --muted: #718096;
-        --border: #e4eaf2;
-        --surface: #ffffff;
-        --background: #f4f7fb;
-    }
+    --navy: #12372F;
+    --navy-light: #1E4D40;
+    --teal: #11b8a6;
+    --teal-light: #e6faf6;
+    --muted: #718096;
+    --border: #e4eaf2;
+    --surface: #ffffff;
+    --background: #f4f7fb;
+}
 
     html, body, [class*="css"] {
         font-family: 'DM Sans', sans-serif;
@@ -151,8 +151,8 @@ st.markdown(
     }
 
     [data-testid="stSidebar"] {
-        background: #101b35;
-        border-right: 1px solid #263553;
+        background: #12372F;
+        border-right: 1px solid #245348;
     }
 
     [data-testid="stSidebar"] * {
@@ -173,13 +173,14 @@ st.markdown(
     }
 
     .hero {
-        background: linear-gradient(120deg, #101b35 0%, #1c3154 75%, #175d68 130%);
-        border: 1px solid #263c5c;
-        border-radius: 22px;
-        padding: 30px 32px;
-        color: white;
-        margin-bottom: 22px;
-        box-shadow: 0 12px 30px rgba(16, 27, 53, 0.12);
+        background: linear-gradient(
+    120deg,
+    #12372F 0%,
+    #1E4D40 75%,
+    #18806F 130%
+);
+border: 1px solid #245348;
+box-shadow: 0 12px 30px rgba(18, 55, 47, 0.12);
     }
 
     .hero-kicker {
