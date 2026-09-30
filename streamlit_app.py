@@ -146,6 +146,72 @@ Return ONLY a valid JSON object using these exact fields:
 
 
 # ============================================================
+# 2E. RUN THE MODEL COMPARISON
+# ============================================================
+
+import time
+
+
+def compare_fraud_models(case):
+    """Run the same case through each configured model."""
+
+    prompt = build_fraud_analysis_prompt(case)
+    results = []
+
+    for model_name, model_id in OPENROUTER_MODELS.items():
+        start_time = time.perf_counter()
+
+        result = call_openrouter_model(model_id, prompt)
+
+        latency_seconds = round(
+            time.perf_counter() - start_time, 2
+        )
+
+        comparison = {
+            "model_name": model_name,
+            "model_id": model_id,
+            "latency_seconds": latency_seconds,
+            "success": result.get("success", False),
+            "usage": result.get("usage", {})
+        }
+
+        if result.get("success"):
+            raw_response = result.get("response", "")
+
+            try:
+                # Handle JSON wrapped in Markdown code fences.
+                cleaned_response = raw_response.strip()
+
+                if cleaned_response.startswith("```"):
+                    cleaned_response = cleaned_response.split(
+                        "\n", 1
+                    )[1]
+                    if cleaned_response.rstrip().endswith("```"):
+                        cleaned_response = (
+                            cleaned_response.rstrip()[:-3].strip()
+                        )
+
+                comparison["parsed_output"] = json.loads(
+                    cleaned_response
+                )
+                comparison["structured_output_valid"] = True
+
+            except (json.JSONDecodeError, IndexError):
+                comparison["parsed_output"] = None
+                comparison["raw_response"] = raw_response
+                comparison["structured_output_valid"] = False
+
+        else:
+            comparison["error"] = result.get(
+                "error", "Unknown API error"
+            )
+
+        results.append(comparison)
+
+    return results
+
+
+# ============================================================
 # 3. SYNTHETIC FRAUD CASES
 # ============================================================
 
