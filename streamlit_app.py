@@ -44,6 +44,7 @@ except Exception:
 # 2B. OPENROUTER API FUNCTION
 # ============================================================
 
+
 def call_openrouter_model(model_id, prompt):
     """Send a prompt to an OpenRouter model and return its response."""
 
@@ -83,28 +84,30 @@ def call_openrouter_model(model_id, prompt):
             "usage": result.get("usage", {})
         }
 
-    
-except requests.exceptions.RequestException as error:
-    details = ""
+    except requests.exceptions.RequestException as error:
+        details = ""
 
-    if error.response is not None:
-        details = error.response.text[:1000]
+        if error.response is not None:
+            details = error.response.text[:1000]
 
-    return {
-        "success": False,
-        "error": (
-            f"{error}\nAPI details: {details}"
-            if details
-            else str(error)
-        )
-    }
-
-
-    except (KeyError, IndexError, ValueError):
         return {
             "success": False,
-            "error": "The model returned an unexpected response format."
+            "error": (
+                f"{error}\nAPI details: {details}"
+                if details
+                else str(error)
+            )
         }
+
+    except (KeyError, IndexError, ValueError) as error:
+        return {
+            "success": False,
+            "error": (
+                "Unexpected response format: "
+                f"{str(error)}"
+            )
+        }
+
 
 
 # ============================================================
