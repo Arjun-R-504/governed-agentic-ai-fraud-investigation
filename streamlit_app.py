@@ -117,7 +117,7 @@ def call_openrouter_model(model_id, prompt):
 
 OPENROUTER_MODELS = {
     "Qwen3.8 27B": "qwen/qwen3.8-27b:free",
-    "Gemma 4 26B": "google/gemma-4-26b-a4b-it:free",
+    "Gemma 4 31B": "google/gemma-4-31b-it:free",
     "Inkling Small": "thinkingmachines/inkling-small:free"
 }
 
