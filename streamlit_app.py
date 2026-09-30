@@ -1030,3 +1030,119 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+
+# ============================================================
+# 16. OPEN-WEIGHT MODEL COMPARISON
+# ============================================================
+
+st.divider()
+
+st.markdown(
+    '<div class="section-heading">Open-Weight Model Comparison</div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    '<div class="section-subtitle">'
+    'Compare three AI models using the same synthetic fraud case '
+    'and evaluation prompt. Model outputs are suggestions only.'
+    '</div>',
+    unsafe_allow_html=True,
+)
+
+st.warning(
+    "Experimental evaluation: model outputs are not validated fraud "
+    "decisions. Use synthetic data only. Human review remains mandatory."
+)
+
+if st.button(
+    "Run Three-Model Comparison",
+    type="primary",
+    use_container_width=True,
+):
+    if not OPENROUTER_API_KEY:
+        st.error(
+            "OpenRouter API key is missing. Check Streamlit Cloud Secrets."
+        )
+    else:
+        with st.spinner(
+            "Running the selected case through three models. Please wait..."
+        ):
+            comparison_results = compare_fraud_models(case)
+
+        st.session_state["model_comparison_results"] = comparison_results
+        st.session_state["model_comparison_case_id"] = case["case_id"]
+
+if "model_comparison_results" in st.session_state:
+    results = st.session_state["model_comparison_results"]
+
+    st.markdown("### Comparison results")
+
+    st.caption(
+        "Selected case: "
+        + st.session_state.get("model_comparison_case_id", "Unknown")
+    )
+
+    summary_rows = []
+
+    for result in results:
+        summary_rows.append({
+            "Model": result["model_name"],
+            "API status": (
+                "Success" if result["success"] else "Failed"
+            ),
+            "Latency (seconds)": result["latency_seconds"],
+            "Valid JSON": (
+                "Yes"
+                if result.get("structured_output_valid", False)
+                else (
+                    "No"
+                    if result["success"]
+                    else "Not available"
+                )
+            ),
+        })
+
+    st.dataframe(
+        summary_rows,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    for result in results:
+        with st.expander(
+            f'{result["model_name"]} — '
+            f'{"Success" if result["success"] else "Failed"}'
+        ):
+            st.write("**Model ID:**", result["model_id"])
+            st.write(
+                "**Response latency:**",
+                f'{result["latency_seconds"]} seconds',
+            )
+
+            if result["usage"]:
+                st.write("**API usage:**")
+                st.json(result["usage"])
+
+            if not result["success"]:
+                st.error(result.get("error", "Unknown API error"))
+
+            elif result.get("structured_output_valid"):
+                st.success("The model returned valid JSON.")
+                st.json(result["parsed_output"])
+
+            else:
+                st.warning(
+                    "The model response could not be parsed as JSON."
+                )
+                st.code(
+                    result.get("raw_response", ""),
+                    language="text",
+                )
+
+    st.caption(
+        "Record these results for your report. Latency and JSON validity "
+        "are measured automatically; explanation quality and risk-routing "
+        "accuracy require separate evaluation against reference labels."
+    )
