@@ -116,8 +116,8 @@ def call_openrouter_model(model_id, prompt):
 
 
 OPENROUTER_MODELS = {
-    "Qwen3.8 27B": "qwen/qwen3.8-27b:free",
-    "Gemma 4 31B": "dots-studio/dots-3-note-preview:free",
+    "Qwen3.8 27B": "nvidia/nemotron-3.5-lightning:free",
+    "Dots3-Note Preview": "dots-studio/dots-3-note-preview:free",
     "Nemotron 3 Super": "nvidia/nemotron-3-super-120b-a12b:free"
 }
 
