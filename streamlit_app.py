@@ -1,39 +1,292 @@
+
+import streamlit as st
+import requests
 import json
 from datetime import datetime
-
-import requests
-import streamlit as st
-
 
 # ============================================================
 # 1. PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
-    page_title="Sentinel | Fraud Intelligence",
+    page_title="Sentinel | Fraud Investigation",
     page_icon="🔎",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
-
 
 # ============================================================
 # 2. SECURE N8N CONFIGURATION
-#    The webhook URL must be stored in Streamlit Secrets,
-#    never hardcoded into this public GitHub file.
 # ============================================================
+# Configure this in Streamlit Cloud > App settings > Secrets.
+# Do NOT paste the production webhook URL into this public file.
+#
+# Required Streamlit Secret:
+# N8N_WEBHOOK_URL = "your-n8n-production-webhook-url"
 
 try:
-    N8N_WEBHOOK_URL = st.secrets.get("N8N_WEBHOOK_URL", "").strip()
-except Exception:
+    N8N_WEBHOOK_URL = st.secrets["N8N_WEBHOOK_URL"]
+except (KeyError, FileNotFoundError):
     N8N_WEBHOOK_URL = ""
 
+# ============================================================
+# 3. DESIGN SYSTEM
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+    :root {
+        --navy: #101b32;
+        --blue: #3563e9;
+        --cyan: #35c6d5;
+        --ink: #18243a;
+        --muted: #68758a;
+        --line: #e5eaf2;
+        --surface: #ffffff;
+        --background: #f4f7fb;
+    }
+
+    html, body, [class*="css"] {
+        font-family: 'DM Sans', sans-serif;
+    }
+
+    .stApp {
+        background: var(--background);
+    }
+
+    [data-testid="stHeader"] {
+        background: rgba(244,247,251,0.92);
+    }
+
+    [data-testid="stSidebar"] {
+        background: #101b32;
+    }
+
+    [data-testid="stSidebar"] * {
+        color: #e9efff;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stMetricValue"] {
+        color: white;
+    }
+
+    .block-container {
+        padding-top: 1.8rem;
+        padding-bottom: 3rem;
+        max-width: 1500px;
+    }
+
+    h1, h2, h3 {
+        font-family: 'Manrope', sans-serif;
+        color: var(--ink);
+        letter-spacing: -0.5px;
+    }
+
+    .hero {
+        background: linear-gradient(120deg, #101b32 0%, #203e77 72%, #286c94 100%);
+        padding: 30px 32px;
+        border-radius: 20px;
+        color: white;
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 12px 30px rgba(16,27,50,0.12);
+    }
+
+    .hero:after {
+        content: "";
+        position: absolute;
+        width: 230px;
+        height: 230px;
+        right: -55px;
+        top: -90px;
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 50%;
+        box-shadow: 0 0 0 30px rgba(255,255,255,0.035),
+                    0 0 0 60px rgba(255,255,255,0.025);
+    }
+
+    .hero-kicker {
+        color: #8fe9ef;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        font-size: 11px;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+
+    .hero-title {
+        color: white;
+        font-family: 'Manrope', sans-serif;
+        font-size: clamp(25px, 3vw, 36px);
+        font-weight: 800;
+        line-height: 1.2;
+        margin-bottom: 10px;
+    }
+
+    .hero-copy {
+        color: #d8e4fa;
+        max-width: 760px;
+        line-height: 1.65;
+        font-size: 14px;
+    }
+
+    .hero-tag {
+        display: inline-block;
+        border: 1px solid rgba(143,233,239,0.45);
+        color: #b5f3f4;
+        background: rgba(53,198,213,0.10);
+        padding: 6px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-top: 14px;
+    }
+
+    .section-label {
+        color: #52627a;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin: 24px 0 10px 0;
+    }
+
+    .metric-card {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 17px 18px;
+        min-height: 112px;
+        box-shadow: 0 3px 12px rgba(22,39,70,0.025);
+    }
+
+    .metric-label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .metric-value {
+        color: var(--ink);
+        font-family: 'Manrope', sans-serif;
+        font-size: 27px;
+        font-weight: 800;
+        line-height: 1.25;
+    }
+
+    .metric-note {
+        color: #7c899c;
+        font-size: 11px;
+        margin-top: 6px;
+    }
+
+    .panel {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 21px;
+        margin-bottom: 15px;
+        box-shadow: 0 3px 12px rgba(22,39,70,0.025);
+    }
+
+    .panel-title {
+        font-family: 'Manrope', sans-serif;
+        color: var(--ink);
+        font-size: 16px;
+        font-weight: 800;
+        margin-bottom: 5px;
+    }
+
+    .panel-subtitle {
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 15px;
+    }
+
+    .status-pill {
+        display: inline-block;
+        border-radius: 20px;
+        padding: 5px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        background: #edf2ff;
+        color: #3159bf;
+    }
+
+    .governance-box {
+        background: #eef8f6;
+        border: 1px solid #d0ece5;
+        border-radius: 13px;
+        padding: 15px 17px;
+        color: #23594e;
+        font-size: 13px;
+        line-height: 1.65;
+    }
+
+    .notice-box {
+        background: #fff8e9;
+        border: 1px solid #f3e2b7;
+        border-radius: 12px;
+        padding: 13px 15px;
+        color: #77551c;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .case-id {
+        color: #3563e9;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+    }
+
+    div.stButton > button[kind="primary"] {
+        background: linear-gradient(100deg, #3563e9, #287fbb);
+        border: 0;
+        border-radius: 10px;
+        padding: 0.68rem 1.2rem;
+        font-weight: 700;
+        min-height: 46px;
+        box-shadow: 0 5px 13px rgba(53,99,233,0.18);
+    }
+
+    div.stButton > button[kind="primary"]:hover {
+        background: #244fc8;
+        border: 0;
+    }
+
+    div[data-testid="stSelectbox"] label {
+        font-weight: 600;
+        color: #34435a;
+    }
+
+    hr {
+        border-color: var(--line);
+    }
+
+    .footer {
+        text-align: center;
+        color: #8490a2;
+        font-size: 11px;
+        padding-top: 20px;
+        line-height: 1.8;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # ============================================================
-# 3. SYNTHETIC FRAUD CASES
+# 4. SYNTHETIC FRAUD CASES
 # ============================================================
 
-CASES = {
+cases = {
     "FR-1001 — Routine review": {
         "case_id": "FR-1001",
         "customer_id": "CUST-SYN-001",
@@ -48,9 +301,9 @@ CASES = {
         "evidence_status": "Complete",
         "scenario": "Normal",
         "case_notes": (
-            "The transaction is larger than usual, but the device, "
-            "location and verification record are familiar."
-        ),
+            "The transaction is larger than the customer's usual amount, "
+            "but the device, location and verification are familiar."
+        )
     },
     "FR-1002 — Additional verification": {
         "case_id": "FR-1002",
@@ -69,9 +322,9 @@ CASES = {
         "evidence_status": "Partial",
         "scenario": "Ambiguous",
         "case_notes": (
-            "Unusual device and location indicators conflict with "
-            "a verification record that has not been independently confirmed."
-        ),
+            "The new device and unfamiliar location raise questions, "
+            "but the available verification record is not conclusive."
+        )
     },
     "FR-1003 — Urgent human escalation": {
         "case_id": "FR-1003",
@@ -87,323 +340,24 @@ CASES = {
         "evidence_status": "Incomplete",
         "scenario": "High-risk",
         "case_notes": (
-            "Multiple unusual indicators are present, previous suspicious "
-            "alerts exist, and supporting evidence is incomplete."
-        ),
-    },
+            "Multiple unusual indicators and incomplete evidence "
+            "warrant urgent review by a human investigator."
+        )
+    }
 }
 
-
 # ============================================================
-# 4. SESSION STATE
-# ============================================================
-
-if "last_response" not in st.session_state:
-    st.session_state.last_response = None
-
-if "last_case_id" not in st.session_state:
-    st.session_state.last_case_id = None
-
-if "last_run_time" not in st.session_state:
-    st.session_state.last_run_time = None
-
-
-# ============================================================
-# 5. VISUAL DESIGN
+# 5. SESSION STATE
 # ============================================================
 
-st.markdown(
-    """
-    <style>
-    @import url(
-      'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap'
-    );
+if "investigation_result" not in st.session_state:
+    st.session_state.investigation_result = None
 
-    :root {
-        --navy: #101b35;
-        --navy-light: #1b2a4a;
-        --teal: #11b8a6;
-        --teal-light: #e6faf6;
-        --muted: #718096;
-        --border: #e4eaf2;
-        --surface: #ffffff;
-        --background: #f4f7fb;
-    }
+if "investigated_case_id" not in st.session_state:
+    st.session_state.investigated_case_id = None
 
-    html, body, [class*="css"] {
-        font-family: 'DM Sans', sans-serif;
-    }
-
-    .stApp {
-        background:
-            radial-gradient(
-                circle at 90% 0%,
-                rgba(17, 184, 166, 0.07),
-                transparent 25%
-            ),
-            var(--background);
-    }
-
-    .block-container {
-        padding-top: 1.6rem;
-        padding-bottom: 3rem;
-        max-width: 1500px;
-    }
-
-    [data-testid="stSidebar"] {
-        background: #101b35;
-        border-right: 1px solid #263553;
-    }
-
-    [data-testid="stSidebar"] * {
-        color: #e8eef8;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
-        color: #b7c5db;
-    }
-
-    .brand-label {
-        color: #11b8a6;
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: 2.5px;
-        text-transform: uppercase;
-        margin-bottom: 10px;
-    }
-
-    .hero {
-        background: linear-gradient(120deg, #101b35 0%, #1c3154 75%, #175d68 130%);
-        border: 1px solid #263c5c;
-        border-radius: 22px;
-        padding: 30px 32px;
-        color: white;
-        margin-bottom: 22px;
-        box-shadow: 0 12px 30px rgba(16, 27, 53, 0.12);
-    }
-
-    .hero-kicker {
-        color: #72e4d6;
-        text-transform: uppercase;
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: 2px;
-        margin-bottom: 10px;
-    }
-
-    .hero h1 {
-        font-family: 'Manrope', sans-serif;
-        font-size: clamp(28px, 3.2vw, 42px);
-        font-weight: 800;
-        line-height: 1.15;
-        color: #ffffff;
-        margin: 0 0 12px 0;
-    }
-
-    .hero p {
-        color: #d0dced;
-        font-size: 14px;
-        line-height: 1.7;
-        margin: 0;
-        max-width: 800px;
-    }
-
-    .hero-chip {
-        display: inline-block;
-        margin-top: 18px;
-        margin-right: 8px;
-        padding: 7px 11px;
-        border-radius: 100px;
-        border: 1px solid #3d5875;
-        background: rgba(255,255,255,0.07);
-        color: #e8f5ff;
-        font-size: 11px;
-        font-weight: 700;
-    }
-
-    .section-heading {
-        font-family: 'Manrope', sans-serif;
-        color: #14213d;
-        font-size: 20px;
-        font-weight: 800;
-        margin: 18px 0 4px 0;
-    }
-
-    .section-subtitle {
-        color: #718096;
-        font-size: 13px;
-        margin-bottom: 15px;
-    }
-
-    .info-card {
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 15px;
-        padding: 18px;
-        min-height: 105px;
-        box-shadow: 0 4px 14px rgba(16, 27, 53, 0.025);
-    }
-
-    .info-label {
-        color: #718096;
-        font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.7px;
-        margin-bottom: 9px;
-    }
-
-    .info-value {
-        color: #14213d;
-        font-family: 'Manrope', sans-serif;
-        font-size: 23px;
-        font-weight: 800;
-        line-height: 1.25;
-        overflow-wrap: anywhere;
-    }
-
-    .info-detail {
-        color: #8492a6;
-        font-size: 11px;
-        margin-top: 7px;
-        line-height: 1.5;
-    }
-
-    .status-pill {
-        display: inline-block;
-        border-radius: 100px;
-        padding: 6px 10px;
-        font-size: 11px;
-        font-weight: 800;
-        background: #e9f2ff;
-        color: #2858a5;
-    }
-
-    .governance-box {
-        background: #effbf8;
-        border: 1px solid #c8eee5;
-        border-left: 4px solid #11b8a6;
-        border-radius: 12px;
-        padding: 16px 18px;
-        color: #245c55;
-        font-size: 13px;
-        line-height: 1.65;
-        margin: 12px 0 18px 0;
-    }
-
-    .governance-box strong {
-        color: #124c45;
-    }
-
-    .case-note {
-        background: #ffffff;
-        border: 1px solid var(--border);
-        border-radius: 13px;
-        padding: 15px 17px;
-        color: #526176;
-        font-size: 13px;
-        line-height: 1.7;
-        margin: 10px 0 18px 0;
-    }
-
-    .workflow-step {
-        background: #ffffff;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 13px 14px;
-        text-align: center;
-        min-height: 105px;
-    }
-
-    .workflow-number {
-        color: #11a896;
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 1px;
-        margin-bottom: 7px;
-    }
-
-    .workflow-title {
-        color: #182642;
-        font-size: 12px;
-        font-weight: 800;
-        line-height: 1.45;
-    }
-
-    .workflow-detail {
-        color: #8492a6;
-        font-size: 10px;
-        line-height: 1.5;
-        margin-top: 6px;
-    }
-
-    div.stButton > button[kind="primary"] {
-        background: linear-gradient(100deg, #0b9f92, #12b8a6);
-        color: white;
-        border: 0;
-        border-radius: 10px;
-        padding: 0.7rem 1.1rem;
-        font-weight: 800;
-        box-shadow: 0 5px 13px rgba(17, 184, 166, 0.18);
-    }
-
-    div.stButton > button[kind="primary"]:hover {
-        background: #087f75;
-        color: white;
-        border: 0;
-    }
-
-    div.stButton > button {
-        border-radius: 9px;
-        font-weight: 700;
-    }
-
-    div[data-testid="stMetric"] {
-        background: #ffffff;
-        border: 1px solid var(--border);
-        padding: 16px 18px;
-        border-radius: 14px;
-    }
-
-    div[data-testid="stMetricLabel"] {
-        color: #718096;
-        font-size: 12px;
-    }
-
-    div[data-testid="stMetricValue"] {
-        color: #14213d;
-        font-family: 'Manrope', sans-serif;
-        font-weight: 800;
-    }
-
-    div[data-testid="stExpander"] {
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        background: white;
-    }
-
-    .footer {
-        text-align: center;
-        color: #8794a7;
-        font-size: 11px;
-        padding: 22px 0 0 0;
-        line-height: 1.7;
-    }
-
-    hr {
-        border-color: #e4eaf2;
-    }
-
-    @media (max-width: 700px) {
-        .hero {
-            padding: 22px 20px;
-        }
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
+if "investigation_timestamp" not in st.session_state:
+    st.session_state.investigation_timestamp = None
 
 # ============================================================
 # 6. SIDEBAR
@@ -412,438 +366,550 @@ st.markdown(
 with st.sidebar:
     st.markdown(
         """
-        <div style="padding: 12px 0 18px 0;">
-            <div style="font-size: 28px; font-weight: 800; color: white;">
-                ◈ SENTINEL
+        <div style="padding:10px 0 20px 0;">
+            <div style="font-size:27px;">🔎</div>
+            <div style="font-family:Manrope;font-size:21px;font-weight:800;">
+                SENTINEL
             </div>
-            <div style="color: #8fa5c3; font-size: 11px; letter-spacing: 1.5px;">
+            <div style="font-size:11px;color:#a9b9d8;letter-spacing:1.5px;">
                 FRAUD INTELLIGENCE
             </div>
         </div>
         """,
-        unsafe_allow_html=True,
+        unsafe_allow_html=True
     )
 
     st.markdown("---")
-    st.markdown("**PROJECT NAVIGATION**")
-    st.markdown("🔎  Fraud investigation")
-    st.markdown("🧾  Evidence review")
-    st.markdown("🛡️  Governance controls")
+    st.markdown("**INVESTIGATION WORKSPACE**")
+    st.caption("Select a synthetic case in the main dashboard to begin.")
 
     st.markdown("---")
-    st.markdown("**ENVIRONMENT**")
+    st.markdown("**WORKFLOW STATUS**")
 
-    st.markdown(
-        '<span class="status-pill">SYNTHETIC DATA ONLY</span>',
-        unsafe_allow_html=True,
-    )
-
-    st.write("")
-    st.caption("Educational proof of concept")
-    st.caption("No live banking systems connected.")
+    if N8N_WEBHOOK_URL:
+        st.success("Secure URL configured")
+    else:
+        st.warning("Webhook secret not configured")
 
     st.markdown("---")
-    st.markdown("**HUMAN OVERSIGHT**")
+    st.markdown("**GOVERNANCE CONTROLS**")
     st.markdown(
         """
-        - Human investigator retains final authority.
-        - Missing evidence must remain visible.
-        - No automatic account freeze.
-        - No automatic transaction blocking.
+        - Human investigator has final authority
+        - Evidence gaps remain visible
+        - Uncertainty is not treated as proof
+        - No automatic account freezing
+        - No automatic transaction blocking
         """
     )
 
+    st.markdown("---")
+    st.caption("Academic prototype • Synthetic data only")
 
 # ============================================================
-# 7. HEADER
+# 7. HERO HEADER
 # ============================================================
 
 st.markdown(
     """
     <div class="hero">
-        <div class="hero-kicker">Governed Agentic AI · Banking Operations</div>
-        <h1>Fraud Investigation<br>Command Centre</h1>
-        <p>
-            A human-supervised decision-support prototype that organises
-            suspicious transaction information, highlights evidence gaps,
-            supports risk assessment and routes cases for appropriate review.
-        </p>
-        <span class="hero-chip">◈ Synthetic cases</span>
-        <span class="hero-chip">◈ Evidence-aware</span>
-        <span class="hero-chip">◈ Human-in-the-loop</span>
+        <div class="hero-kicker">Governed Agentic AI • Banking Operations</div>
+        <div class="hero-title">
+            Banking Fraud<br>Investigation & Response
+        </div>
+        <div class="hero-copy">
+            A human-supervised investigation workspace that brings together
+            transaction triage, evidence validation, illustrative risk
+            assessment and investigation routing through an n8n workflow.
+        </div>
+        <div class="hero-tag">
+            ● SYNTHETIC DATA &nbsp; | &nbsp; HUMAN-IN-THE-LOOP
+        </div>
     </div>
     """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
-
 
 # ============================================================
-# 8. OVERVIEW METRICS
+# 8. TOP SUMMARY METRICS
 # ============================================================
 
-st.markdown(
-    '<div class="section-heading">Investigation overview</div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    '<div class="section-subtitle">Explore three controlled scenarios before running an investigation.</div>',
-    unsafe_allow_html=True,
-)
+st.markdown('<div class="section-label">Investigation overview</div>',
+            unsafe_allow_html=True)
 
-metric_cols = st.columns(4)
+m1, m2, m3, m4 = st.columns(4)
 
-overview_metrics = [
-    ("Test scenarios", "03", "Normal, ambiguous and high-risk"),
-    ("Data environment", "Synthetic", "No real customer records"),
-    ("Decision authority", "Human", "Final decision remains with investigator"),
-    ("Automation", "n8n", "Workflow orchestration"),
-]
+with m1:
+    st.markdown(
+        """
+        <div class="metric-card">
+            <div class="metric-label">Synthetic test cases</div>
+            <div class="metric-value">03</div>
+            <div class="metric-note">Available for demonstration</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-for col, (label, value, detail) in zip(metric_cols, overview_metrics):
-    with col:
-        st.markdown(
-            f"""
-            <div class="info-card">
-                <div class="info-label">{label}</div>
-                <div class="info-value">{value}</div>
-                <div class="info-detail">{detail}</div>
+with m2:
+    st.markdown(
+        """
+        <div class="metric-card">
+            <div class="metric-label">Workflow stages</div>
+            <div class="metric-value">05</div>
+            <div class="metric-note">Triage to case routing</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+with m3:
+    st.markdown(
+        """
+        <div class="metric-card">
+            <div class="metric-label">Decision authority</div>
+            <div class="metric-value" style="font-size:22px;">Human</div>
+            <div class="metric-note">Final decision stays with investigator</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+with m4:
+    st.markdown(
+        """
+        <div class="metric-card">
+            <div class="metric-label">Automated enforcement</div>
+            <div class="metric-value" style="font-size:22px;">Disabled</div>
+            <div class="metric-note">No automatic freezing or blocking</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+# ============================================================
+# 9. CASE SELECTION AND DETAILS
+# ============================================================
+
+st.markdown('<div class="section-label">01 / Case selection</div>',
+            unsafe_allow_html=True)
+
+left, right = st.columns([1.05, 1.45], gap="large")
+
+with left:
+    st.markdown(
+        """
+        <div class="panel">
+            <div class="panel-title">Select investigation case</div>
+            <div class="panel-subtitle">
+                Choose one of the three predefined synthetic scenarios.
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        """,
+        unsafe_allow_html=True
+    )
 
+    selected_case_label = st.selectbox(
+        "Synthetic case",
+        list(cases.keys()),
+        key="selected_case_label"
+    )
 
-# ============================================================
-# 9. CASE SELECTION
-# ============================================================
+    case = cases[selected_case_label]
 
-st.markdown(
-    '<div class="section-heading">Select a fraud alert</div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    '<div class="section-subtitle">Each case contains fictional transaction and evidence information.</div>',
-    unsafe_allow_html=True,
-)
-
-selected_case_name = st.selectbox(
-    "Choose a test scenario",
-    list(CASES.keys()),
-)
-
-case = CASES[selected_case_name]
-
-st.markdown(
-    f"""
-    <div class="case-note">
-        <strong>Case context:</strong> {case["case_notes"]}
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# ============================================================
-# 10. TRANSACTION AND CUSTOMER CONTEXT
-# ============================================================
-
-st.markdown(
-    '<div class="section-heading">Case intelligence</div>',
-    unsafe_allow_html=True,
-)
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
     st.markdown(
         f"""
-        <div class="info-card">
-            <div class="info-label">Transaction amount</div>
-            <div class="info-value">₹{case["transaction_amount"]:,}</div>
-            <div class="info-detail">
-                Usual transaction: ₹{case["usual_amount"]:,}
-            </div>
-        </div>
+        <div class="case-id">{case['case_id']}</div>
+        <h3 style="margin:5px 0 8px 0;">{case['scenario']} scenario</h3>
+        <p style="font-size:13px;color:#68758a;line-height:1.6;">
+            {case['case_notes']}
+        </p>
         """,
-        unsafe_allow_html=True,
+        unsafe_allow_html=True
     )
-    st.write("")
-    st.write("**Case ID:**", case["case_id"])
-    st.write("**Synthetic customer:**", case["customer_id"])
 
-with col2:
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with right:
     st.markdown(
         """
-        <div class="info-card">
-            <div class="info-label">Access context</div>
-            <div class="info-value" style="font-size: 18px;">Transaction signals</div>
-            <div class="info-detail">
-                Channel, device, location and login activity
+        <div class="panel">
+            <div class="panel-title">Transaction snapshot</div>
+            <div class="panel-subtitle">
+                Review the supplied transaction and account indicators.
             </div>
-        </div>
         """,
-        unsafe_allow_html=True,
+        unsafe_allow_html=True
     )
-    st.write("**Channel:**", case["channel"])
-    st.write("**Device:**", case["device"])
-    st.write("**Location:**", case["location"])
 
-with col3:
-    st.markdown(
-        """
-        <div class="info-card">
-            <div class="info-label">Evidence context</div>
-            <div class="info-value" style="font-size: 18px;">Verification status</div>
-            <div class="info-detail">
-                Evidence completeness and prior alerts
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.write("**Verification:**", case["verification_status"])
-    st.write("**Evidence:**", case["evidence_status"])
-    st.write("**Previous suspicious alerts:**", case["previous_alerts"])
-    st.write("**Failed logins:**", case["failed_logins"])
+    c1, c2 = st.columns(2)
 
-st.divider()
-
-
-# ============================================================
-# 11. ILLUSTRATIVE WORKFLOW
-# ============================================================
-
-st.markdown(
-    '<div class="section-heading">Governed investigation pathway</div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    '<div class="section-subtitle">Logical roles represented by the n8n workflow. These steps do not independently make final fraud decisions.</div>',
-    unsafe_allow_html=True,
-)
-
-workflow_cols = st.columns(5)
-
-workflow_steps = [
-    ("01", "Alert intake", "Receive synthetic case"),
-    ("02", "Transaction triage", "Identify unusual signals"),
-    ("03", "Evidence review", "Find gaps and conflicts"),
-    ("04", "Risk assessment", "Apply illustrative rules"),
-    ("05", "Human review", "Route for investigator action"),
-]
-
-for col, (number, title, detail) in zip(workflow_cols, workflow_steps):
-    with col:
-        st.markdown(
-            f"""
-            <div class="workflow-step">
-                <div class="workflow-number">STAGE {number}</div>
-                <div class="workflow-title">{title}</div>
-                <div class="workflow-detail">{detail}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+    with c1:
+        st.metric(
+            "Transaction amount",
+            f"₹{case['transaction_amount']:,}"
         )
+        st.write("**Case ID:**", case["case_id"])
+        st.write("**Customer ID:**", case["customer_id"])
+        st.write("**Channel:**", case["channel"])
+
+    with c2:
+        st.metric(
+            "Usual transaction amount",
+            f"₹{case['usual_amount']:,}"
+        )
+        st.write("**Device:**", case["device"])
+        st.write("**Location:**", case["location"])
+        st.write("**Evidence:**", case["evidence_status"])
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ============================================================
+# 10. INDICATORS AND EVIDENCE
+# ============================================================
+
+st.markdown('<div class="section-label">02 / Indicators & evidence</div>',
+            unsafe_allow_html=True)
+
+a, b, c, d = st.columns(4)
+
+with a:
+    st.markdown(
+        f"""
+        <div class="metric-card">
+            <div class="metric-label">Failed login attempts</div>
+            <div class="metric-value">{case['failed_logins']}</div>
+            <div class="metric-note">Supplied synthetic indicator</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+with b:
+    st.markdown(
+        f"""
+        <div class="metric-card">
+            <div class="metric-label">Previous alerts</div>
+            <div class="metric-value">{case['previous_alerts']}</div>
+            <div class="metric-note">Supplied synthetic indicator</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+with c:
+    st.markdown(
+        f"""
+        <div class="metric-card">
+            <div class="metric-label">Device familiarity</div>
+            <div class="metric-value" style="font-size:20px;">
+                {"Known" if case['device'] == "Known device" else "New"}
+            </div>
+            <div class="metric-note">{case['device']}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+with d:
+    st.markdown(
+        f"""
+        <div class="metric-card">
+            <div class="metric-label">Verification</div>
+            <div class="metric-value" style="font-size:18px;">
+                {
+                    "Confirmed"
+                    if case["verification_status"] == "Confirmed legitimate"
+                    else "Needs review"
+                }
+            </div>
+            <div class="metric-note">Review source evidence</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+with st.expander("View complete synthetic case record"):
+    st.json(case)
+
+# ============================================================
+# 11. INVESTIGATION WORKFLOW
+# ============================================================
+
+st.markdown('<div class="section-label">03 / Run investigation</div>',
+            unsafe_allow_html=True)
 
 st.markdown(
     """
-    <div class="governance-box">
-        <strong>Governance rule:</strong> The workflow provides decision support.
-        It must not independently determine that fraud has occurred, freeze an
-        account, or block a transaction. Missing or conflicting evidence should
-        be surfaced for a human investigator.
+    <div class="panel">
+        <div class="panel-title">Governed investigation workflow</div>
+        <div class="panel-subtitle">
+            The selected case is sent to the n8n Production Webhook.
+            The workflow response is displayed below for human review.
+        </div>
     </div>
     """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
-
-
-# ============================================================
-# 12. INVESTIGATION ACTION
-# ============================================================
 
 st.markdown(
-    '<div class="section-heading">Run investigation</div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    '<div class="section-subtitle">Send the selected synthetic case to the published n8n Production Webhook.</div>',
-    unsafe_allow_html=True,
+    """
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px 0;">
+        <span class="status-pill">01 · Transaction triage</span>
+        <span class="status-pill">02 · Evidence validation</span>
+        <span class="status-pill">03 · Risk assessment</span>
+        <span class="status-pill">04 · Case report</span>
+        <span class="status-pill">05 · Human routing</span>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
-left, right = st.columns([1, 2])
+run_col, info_col = st.columns([1, 2])
 
-with left:
+with run_col:
     run_investigation = st.button(
         "🔎  Run Investigation",
         type="primary",
-        use_container_width=True,
+        use_container_width=True
     )
 
-with right:
+with info_col:
     st.caption(
-        "Only fictional case information is sent. The response depends on "
-        "how the n8n workflow is configured to process and return the request."
+        "This action submits only the selected synthetic case. "
+        "It does not contact a real bank or execute a financial action."
     )
-
-
-# ============================================================
-# 13. SEND CASE TO N8N
-# ============================================================
 
 if run_investigation:
     if not N8N_WEBHOOK_URL:
         st.error(
-            "The n8n URL is not configured yet. Add N8N_WEBHOOK_URL "
-            "to Streamlit Secrets before running an investigation."
+            "The n8n URL is not configured in Streamlit Secrets. "
+            "Add the N8N_WEBHOOK_URL secret in your Streamlit app settings, "
+            "save it, and allow the app to reload."
         )
-
-    elif not N8N_WEBHOOK_URL.startswith("https://"):
-        st.error(
-            "The configured webhook URL must start with https://. "
-            "Check the N8N_WEBHOOK_URL value in Streamlit Secrets."
-        )
-
     else:
-        payload = dict(case)
-        payload["submitted_at_utc"] = datetime.utcnow().isoformat() + "Z"
-        payload["source"] = "Sentinel Streamlit Dashboard"
-        payload["human_review_required"] = True
-
         try:
             with st.spinner(
-                "Submitting case to n8n and waiting for the workflow response..."
+                "Submitting the case to n8n and waiting for the workflow response..."
             ):
                 response = requests.post(
                     N8N_WEBHOOK_URL,
-                    json=payload,
+                    json=case,
                     headers={"Content-Type": "application/json"},
-                    timeout=90,
+                    timeout=90
                 )
 
             response.raise_for_status()
 
-            st.session_state.last_case_id = case["case_id"]
-            st.session_state.last_run_time = datetime.now().strftime(
-                "%d %b %Y, %I:%M:%S %p"
-            )
-
             try:
-                response_data = response.json()
+                result = response.json()
             except ValueError:
-                response_data = response.text
+                result = {"workflow_response": response.text}
 
-            st.session_state.last_response = {
-                "http_status": response.status_code,
-                "data": response_data,
-            }
-
-            st.success(
-                f"n8n returned an HTTP {response.status_code} response "
-                f"for {case['case_id']}."
+            st.session_state.investigation_result = result
+            st.session_state.investigated_case_id = case["case_id"]
+            st.session_state.investigation_timestamp = datetime.now().strftime(
+                "%d %b %Y, %I:%M:%S %p"
             )
 
         except requests.Timeout:
             st.error(
                 "The request timed out while waiting for n8n. "
-                "Check the workflow execution in n8n before retrying."
+                "Check whether the workflow completed and whether the "
+                "Webhook node is configured to return a response."
             )
 
         except requests.RequestException as error:
             st.error(
-                "The request could not be completed. Check the Production "
-                "Webhook URL, n8n execution status and webhook response "
-                "configuration."
+                "Could not complete the n8n request. "
+                "Check that the Production Webhook is active and that "
+                "the URL in Streamlit Secrets is correct."
             )
-            st.code(str(error))
-
+            with st.expander("Technical error details"):
+                st.code(str(error))
 
 # ============================================================
-# 14. DISPLAY WORKFLOW RESPONSE
+# 12. INVESTIGATION RESULTS
 # ============================================================
 
-if st.session_state.last_response is not None:
-    st.divider()
+result = st.session_state.investigation_result
 
+if result is not None:
     st.markdown(
-        '<div class="section-heading">Latest workflow response</div>',
-        unsafe_allow_html=True,
+        '<div class="section-label">04 / Investigation output</div>',
+        unsafe_allow_html=True
     )
 
-    st.markdown(
-        f"""
-        <div class="case-note">
-            <strong>Case submitted:</strong> {st.session_state.last_case_id}<br>
-            <strong>Response received:</strong> {st.session_state.last_run_time}<br>
-            <strong>HTTP status:</strong> {st.session_state.last_response["http_status"]}
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.success(
+        f"Workflow response received for "
+        f"{st.session_state.investigated_case_id}."
     )
 
-    response_data = st.session_state.last_response["data"]
+    st.caption(
+        f"Received at: {st.session_state.investigation_timestamp}"
+    )
 
-    if isinstance(response_data, (dict, list)):
-        st.json(response_data)
-    elif response_data:
-        st.code(str(response_data), language="text")
+    # n8n may return one object or a list of output objects.
+    # Display the original response without losing any fields.
+    result_data = result
+
+    if isinstance(result_data, list) and len(result_data) == 1:
+        result_data = result_data[0]
+
+    # Handle a common n8n response shape: {"data": {...}}
+    if isinstance(result_data, dict):
+        if isinstance(result_data.get("data"), dict):
+            display_result = result_data["data"]
+        else:
+            display_result = result_data
     else:
-        st.info(
-            "n8n returned an empty response. Check the workflow's webhook "
-            "response settings and final output configuration."
-        )
+        display_result = result_data
+
+    if isinstance(display_result, dict):
+        routing = display_result.get("routing_status")
+        risk_level = display_result.get("risk_level")
+        risk_score = display_result.get("risk_score")
+        final_decision = display_result.get("final_decision")
+        evidence_status = display_result.get("evidence_review_status")
+
+        r1, r2, r3 = st.columns(3)
+
+        with r1:
+            st.markdown(
+                """
+                <div class="metric-card">
+                    <div class="metric-label">Illustrative risk level</div>
+                """,
+                unsafe_allow_html=True
+            )
+            st.markdown(
+                f'<div class="metric-value" style="font-size:23px;">'
+                f'{risk_level if risk_level is not None else "See report"}'
+                f'</div></div>',
+                unsafe_allow_html=True
+            )
+
+        with r2:
+            st.markdown(
+                """
+                <div class="metric-card">
+                    <div class="metric-label">Illustrative risk score</div>
+                """,
+                unsafe_allow_html=True
+            )
+            st.markdown(
+                f'<div class="metric-value" style="font-size:23px;">'
+                f'{risk_score if risk_score is not None else "N/A"}'
+                f'</div></div>',
+                unsafe_allow_html=True
+            )
+
+        with r3:
+            st.markdown(
+                """
+                <div class="metric-card">
+                    <div class="metric-label">Evidence review</div>
+                """,
+                unsafe_allow_html=True
+            )
+            st.markdown(
+                f'<div class="metric-value" style="font-size:18px;">'
+                f'{evidence_status if evidence_status is not None else "See report"}'
+                f'</div></div>',
+                unsafe_allow_html=True
+            )
+
+        if routing:
+            st.markdown("#### Recommended investigation route")
+            st.info(str(routing))
+
+        if final_decision:
+            st.markdown("#### Final decision status")
+            st.warning(str(final_decision))
 
     st.markdown(
         """
         <div class="governance-box">
-            <strong>Human decision pending.</strong> Review the returned
-            evidence, risk indicators, missing information and routing outcome.
-            A human investigator remains responsible for the final decision.
+            <strong>Human oversight required</strong><br>
+            This output supports investigation only. It is not proof of fraud.
+            An authorised human investigator must examine the evidence and
+            make the final decision. The prototype cannot freeze accounts,
+            block transactions or take other consequential financial actions.
         </div>
         """,
-        unsafe_allow_html=True,
+        unsafe_allow_html=True
     )
 
+    with st.expander("View complete n8n response"):
+        st.json(result)
+
+else:
+    st.info(
+        "No investigation result is available yet. Select a synthetic case "
+        "and click **Run Investigation** to send it to n8n."
+    )
 
 # ============================================================
-# 15. TRANSPARENCY AND GOVERNANCE
+# 13. GOVERNANCE AND LIMITATIONS
 # ============================================================
 
-with st.expander("View full synthetic case payload"):
-    st.json(case)
+st.markdown(
+    '<div class="section-label">05 / Governance & responsible use</div>',
+    unsafe_allow_html=True
+)
 
-with st.expander("Governance controls and limitations"):
+g1, g2 = st.columns(2, gap="large")
+
+with g1:
     st.markdown(
         """
-        **Data and privacy**
-        - This prototype uses synthetic customer and transaction data only.
-        - Do not enter real customer information or confidential bank records.
-
-        **Evidence and uncertainty**
-        - Partial or conflicting evidence must be visible to the investigator.
-        - A missing verification record must not be treated as proof of fraud.
-        - Risk scores and routing labels are illustrative, not validated
-          production fraud decisions.
-
-        **Human oversight**
-        - The workflow is decision support, not an autonomous enforcement system.
-        - A human investigator retains final decision authority.
-        - No automatic account freeze or transaction blocking is permitted.
-
-        **Auditability**
-        - Record test cases, workflow executions, outputs and reviewer feedback
-          for project evaluation.
-        - Validate the workflow's behaviour before drawing conclusions.
-        """
+        <div class="panel">
+            <div class="panel-title">Governance safeguards</div>
+            <div class="panel-subtitle">
+                Controls built into the intended investigation process.
+            </div>
+            <div class="governance-box">
+                ✓ Human investigator retains final authority<br>
+                ✓ Missing evidence should remain visible<br>
+                ✓ Conflicting records require further review<br>
+                ✓ Risk scores are decision-support indicators only<br>
+                ✓ No autonomous account freezing or transaction blocking
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
+
+with g2:
+    st.markdown(
+        """
+        <div class="panel">
+            <div class="panel-title">Prototype limitations</div>
+            <div class="panel-subtitle">
+                Important boundaries for interpreting results.
+            </div>
+            <div class="notice-box">
+                This academic prototype uses synthetic cases and illustrative
+                rules. Its outputs are not a validated fraud-detection model
+                and must not be used for real banking decisions. Model
+                validation, security testing, auditability and authorised
+                expert review would be required before any real-world use.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+# ============================================================
+# 14. FOOTER
+# ============================================================
 
 st.markdown(
     """
     <div class="footer">
-        SENTINEL · Governed Agentic AI for Banking Fraud Investigation and Response<br>
-        Student proof of concept · Synthetic data only · Human oversight required<br>
-        Not intended for production banking or autonomous fraud enforcement
+        SENTINEL · GOVERNED AGENTIC AI FOR BANKING FRAUD INVESTIGATION<br>
+        Academic demonstration • Synthetic data only • Human-supervised response<br>
+        Designed to support investigation, not to replace human judgement.
     </div>
     """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
