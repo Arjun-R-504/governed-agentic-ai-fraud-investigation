@@ -83,11 +83,22 @@ def call_openrouter_model(model_id, prompt):
             "usage": result.get("usage", {})
         }
 
-    except requests.exceptions.RequestException as error:
-        return {
-            "success": False,
-            "error": str(error)
-        }
+    
+except requests.exceptions.RequestException as error:
+    details = ""
+
+    if error.response is not None:
+        details = error.response.text[:1000]
+
+    return {
+        "success": False,
+        "error": (
+            f"{error}\nAPI details: {details}"
+            if details
+            else str(error)
+        )
+    }
+
 
     except (KeyError, IndexError, ValueError):
         return {
