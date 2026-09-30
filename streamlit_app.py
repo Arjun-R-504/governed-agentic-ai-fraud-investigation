@@ -114,11 +114,13 @@ def call_openrouter_model(model_id, prompt):
 # 2C. OPEN-WEIGHT MODELS FOR COMPARISON
 # ============================================================
 
+
 OPENROUTER_MODELS = {
-    "Qwen3 4B": "qwen/qwen3-4b:free",
-    "Gemma 3 4B": "google/gemma-3-4b-it:free",
-    "Llama 3.3 70B": "meta-llama/llama-3.3-70b-instruct:free"
+    "Qwen3.8 27B": "qwen/qwen3.8-27b:free",
+    "Gemma 4 26B": "google/gemma-4-26b-a4b-it:free",
+    "Inkling Small": "thinkingmachines/inkling-small:free"
 }
+
 
 
 # ============================================================
