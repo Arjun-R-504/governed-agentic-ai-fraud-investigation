@@ -39,6 +39,63 @@ try:
 except Exception:
     OPENROUTER_API_KEY = ""
 
+
+# ============================================================
+# 2B. OPENROUTER API FUNCTION
+# ============================================================
+
+def call_openrouter_model(model_id, prompt):
+    """Send a prompt to an OpenRouter model and return its response."""
+
+    if not OPENROUTER_API_KEY:
+        return {
+            "success": False,
+            "error": "OpenRouter API key is not configured."
+        }
+
+    try:
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": model_id,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "temperature": 0
+            },
+            timeout=60
+        )
+
+        response.raise_for_status()
+        result = response.json()
+
+        return {
+            "success": True,
+            "model": model_id,
+            "response": result["choices"][0]["message"]["content"],
+            "usage": result.get("usage", {})
+        }
+
+    except requests.exceptions.RequestException as error:
+        return {
+            "success": False,
+            "error": str(error)
+        }
+
+    except (KeyError, IndexError, ValueError):
+        return {
+            "success": False,
+            "error": "The model returned an unexpected response format."
+        }
+
+
 # ============================================================
 # 3. SYNTHETIC FRAUD CASES
 # ============================================================
