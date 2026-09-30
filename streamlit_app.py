@@ -108,6 +108,44 @@ OPENROUTER_MODELS = {
 
 
 # ============================================================
+# 2D. STANDARD FRAUD ANALYSIS PROMPT
+# ============================================================
+
+def build_fraud_analysis_prompt(case):
+    """Create the same analysis prompt for every model."""
+
+    return f"""
+You are an AI assistant supporting a banking fraud investigation.
+Analyse the synthetic case below and provide a preliminary
+risk assessment. Do not make a final fraud determination.
+
+CASE DATA:
+{json.dumps(case, indent=2, ensure_ascii=False)}
+
+INSTRUCTIONS:
+1. Assess the risk using only the supplied evidence.
+2. Do not assume that unusual activity proves fraud.
+3. Identify missing or incomplete information.
+4. Recommend an appropriate human review route.
+5. Do not recommend automatically blocking a transaction
+   or freezing an account.
+6. If evidence is ambiguous or incomplete, explain why
+   further verification is needed.
+
+Return ONLY a valid JSON object using these exact fields:
+{{
+  "risk_level": "Low, Medium, or High",
+  "recommended_route": "Routine Human Review, Additional Verification / Exception Review, or Urgent Human Escalation",
+  "key_indicators": ["indicator 1"],
+  "missing_information": ["missing item 1"],
+  "explanation": "Brief evidence-based explanation",
+  "human_review_required": true,
+  "final_decision": "Pending human investigation"
+}}
+"""
+
+
+# ============================================================
 # 3. SYNTHETIC FRAUD CASES
 # ============================================================
 
